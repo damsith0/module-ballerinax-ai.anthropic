@@ -41,6 +41,21 @@ import ballerinax/ai.anthropic;
 final ai:ModelProvider anthropicModel = check new anthropic:ModelProvider("anthropicAiApiKey", anthropic:CLAUDE_3_7_SONNET_20250219, "2023-06-01");
 ```
 
+#### Connecting through a gateway
+
+When the Anthropic API is accessed through a gateway that requires an `Authorization` header (e.g., a Bearer token or OAuth2), configure it using the `auth` field. Pass `()` as the API key if the gateway does not require the `x-api-key` header.
+
+```ballerina
+final ai:ModelProvider anthropicModel = check new anthropic:ModelProvider((), anthropic:CLAUDE_SONNET_4_5,
+    serviceUrl = "https://<gateway-url>/v1",
+    auth = {
+        tokenUrl: "https://<token-endpoint>/oauth2/token",
+        clientId: "<client-id>",
+        clientSecret: "<client-secret>"
+    }
+);
+```
+
 ### Step 4: Invoke chat completion
 
 ```ballerina

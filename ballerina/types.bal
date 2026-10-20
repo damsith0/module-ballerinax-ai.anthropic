@@ -20,6 +20,11 @@ import ballerina/http;
 @display {label: "Connection Configuration"}
 public type ConnectionConfig record {|
 
+    # Authentication configuration (e.g., Bearer token or OAuth2) for endpoints such as gateways that
+    # require an `Authorization` header
+    @display {label: "Authentication Configuration"}
+    http:ClientAuthConfig auth?;
+
     # The HTTP version understood by the client
     @display {label: "HTTP Version"}
     http:HttpVersion httpVersion = http:HTTP_2_0;

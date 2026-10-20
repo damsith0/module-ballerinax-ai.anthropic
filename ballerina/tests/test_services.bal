@@ -18,6 +18,7 @@ import ballerina/http;
 import ballerina/test;
 
 isolated map<json> chatRequestMessages = {};
+isolated map<json> authRequestHeaders = {};
 
 service /llm on new http:Listener(8080) {
     resource function post anthropic/messages(map<json> payload)returns AnthropicApiResponse|error {
@@ -69,6 +70,28 @@ service /llm on new http:Listener(8080) {
             stop_sequence: (),
             usage: {input_tokens: 10, output_tokens: 5},
             content: [{'type: "tool_use", id: "toolu_response", name: "sum", input: {a: 4, b: 5}}]
+        };
+    }
+
+    resource function post anthropic/auth/[string scenario]/messages(http:Request request)
+            returns AnthropicApiResponse {
+        string|http:HeaderNotFoundError authorization = request.getHeader("authorization");
+        string|http:HeaderNotFoundError apiKey = request.getHeader("x-api-key");
+        lock {
+            authRequestHeaders[scenario] = {
+                authorization: authorization is string ? authorization : (),
+                apiKey: apiKey is string ? apiKey : ()
+            };
+        }
+        return {
+            id: "test-id",
+            model: CLAUDE_3_7_SONNET_20250219,
+            'type: "message",
+            stop_reason: "tool_use",
+            role: "assistant",
+            stop_sequence: (),
+            usage: {input_tokens: 10, output_tokens: 5},
+            content: [{'type: "tool_use", id: "toolu_response", name: GET_RESULTS_TOOL, input: {result: 4}}]
         };
     }
 }

@@ -28,14 +28,15 @@ const ANTHROPIC_API_VERSION = "2023-06-01";
 public isolated client class ModelProvider {
     *ai:ModelProvider;
     private final http:Client AnthropicClient;
-    private final string apiKey;
+    private final string? apiKey;
     private final string modelType;
     private final int maxTokens;
     private final decimal temperature;
 
     # Initializes the Anthropic model with the given connection configuration and model configuration.
     #
-    # + apiKey - The Anthropic API key
+    # + apiKey - The Anthropic API key, sent as the `x-api-key` header. Pass `()` when authenticating
+    # only via `connectionConfig.auth` (e.g., a gateway that requires a Bearer token)
     # + modelType - The Anthropic model name
     # + apiVersion - The Anthropic API version (e.g., "2023-06-01")  
     # + serviceUrl - The base URL of Anthropic API endpoint
@@ -43,7 +44,7 @@ public isolated client class ModelProvider {
     # + temperature - The temperature for controlling randomness in the model's output  
     # + connectionConfig - Additional HTTP connection configuration
     # + return - `nil` on successful initialization; otherwise, returns an `ai:Error`
-    public isolated function init(string apiKey,
+    public isolated function init(string? apiKey,
             @display {label: "Model Type"} ANTHROPIC_MODEL_NAMES modelType,
             @display {label: "Service URL"} string serviceUrl = DEFAULT_ANTHROPIC_SERVICE_URL,
             @display {label: "Maximum Tokens"} int maxTokens = DEFAULT_MAX_TOKEN_COUNT,
@@ -52,6 +53,7 @@ public isolated client class ModelProvider {
 
         // Convert ConnectionConfig to http:ClientConfiguration
         http:ClientConfiguration anthropicConfig = {
+            auth: connectionConfig?.auth,
             httpVersion: connectionConfig.httpVersion,
             http1Settings: connectionConfig.http1Settings ?: {},
             http2Settings: connectionConfig?.http2Settings ?: {},
@@ -122,11 +124,7 @@ public isolated client class ModelProvider {
         }
 
         // Send request to Anthropic API with proper headers
-        map<string> headers = {
-            "x-api-key": self.apiKey,
-            "anthropic-version": ANTHROPIC_API_VERSION,
-            "content-type": "application/json"
-        };
+        map<string> headers = buildRequestHeaders(self.apiKey);
 
         AnthropicApiResponse|error anthropicResponse = self.AnthropicClient->/messages.post(requestPayload, headers);
         if anthropicResponse is error {

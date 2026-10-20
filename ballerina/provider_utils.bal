@@ -292,7 +292,27 @@ isolated function getGetResultsTool(map<json> parameters) returns map<json>[]|ai
     ];
 }
 
-isolated function generateLlmResponse(http:Client anthropicClient, string apiKey, ANTHROPIC_MODEL_NAMES modelType,
+# Builds the headers for an Anthropic API request. The `x-api-key` header is added only when an API key is
+# provided, so that endpoints authenticated via `ConnectionConfig.auth` do not receive it.
+#
+# + apiKey - The Anthropic API key, if any
+# + additionalHeaders - Any additional headers to include in the request
+# + return - The request headers
+isolated function buildRequestHeaders(string? apiKey, map<string> additionalHeaders = {}) returns map<string> {
+    map<string> headers = {
+        "anthropic-version": ANTHROPIC_API_VERSION,
+        "content-type": "application/json"
+    };
+    foreach [string, string] [name, value] in additionalHeaders.entries() {
+        headers[name] = value;
+    }
+    if apiKey is string {
+        headers["x-api-key"] = apiKey;
+    }
+    return headers;
+}
+
+isolated function generateLlmResponse(http:Client anthropicClient, string? apiKey, ANTHROPIC_MODEL_NAMES modelType,
         int maxTokens, decimal temperature, ai:Prompt prompt, typedesc<json> expectedResponseTypedesc)
             returns anydata|ai:Error {
     observe:GenerateContentSpan span = observe:createGenerateContentSpan(modelType);
@@ -322,12 +342,7 @@ isolated function generateLlmResponse(http:Client anthropicClient, string apiKey
         tool_choice: getGetResultsToolChoice()
     };
 
-    map<string> headers = {
-        "x-api-key": apiKey,
-        "anthropic-version": ANTHROPIC_API_VERSION,
-        "content-type": "application/json",
-        "anthropic-beta": "files-api-2025-04-14"
-    };
+    map<string> headers = buildRequestHeaders(apiKey, {"anthropic-beta": "files-api-2025-04-14"});
 
     AnthropicApiResponse|error response = anthropicClient->/messages.post(request, headers);
     if response is error {
