@@ -1,0 +1,52 @@
+name: WIF GitHub Actions live test
+
+on:
+  push:
+    branches: [wif-gha-test]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # lets the job request GitHub OIDC tokens
+
+jobs:
+  wif-live-test:
+    if: ${{ github.repository_owner != 'ballerina-platform' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ballerina-platform/setup-ballerina@v1
+        with:
+          version: 2201.12.0
+
+      - name: Write test config
+        env:
+          ORG_ID: ${{ secrets.WIF_GHA_ORGANIZATION_ID }}
+          RULE_ID: ${{ secrets.WIF_GHA_FEDERATION_RULE_ID }}
+          SVAC_ID: ${{ secrets.WIF_GHA_SERVICE_ACCOUNT_ID }}
+          WORKSPACE_ID: ${{ secrets.WIF_GHA_WORKSPACE_ID }}
+        run: |
+          cat > ballerina/tests/Config.toml <<EOF
+          ghaOrganizationId = "$ORG_ID"
+          ghaFederationRuleId = "$RULE_ID"
+          ghaServiceAccountId = "$SVAC_ID"
+          ghaWorkspaceId = "$WORKSPACE_ID"
+          EOF
+
+      - name: Run WIF live tests
+        working-directory: ballerina
+        run: |
+          export GHA_IDENTITY_TOKEN_FILE="$RUNNER_TEMP/github-oidc-token"
+          # Keep a fresh GitHub JWT in the token file, like a platform that rotates projected tokens.
+          (
+            while true; do
+              curl -sSf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+                "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://api.anthropic.com" \
+                | jq -r .value > "$GHA_IDENTITY_TOKEN_FILE.tmp" \
+                && mv "$GHA_IDENTITY_TOKEN_FILE.tmp" "$GHA_IDENTITY_TOKEN_FILE"
+              sleep 60
+            done
+          ) &
+          bal test --groups gha
